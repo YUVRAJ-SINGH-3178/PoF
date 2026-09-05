@@ -6,3 +6,4 @@ eth-account>=0.13.0
 py-solc-x>=2.0.0
 python-dotenv>=1.0.0
 pytest>=8.0.0
+google-auth>=2.0.0

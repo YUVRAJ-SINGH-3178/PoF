@@ -86,7 +86,27 @@ def verify_google_vision():
         except Exception as e:
             print(f"  {check_mark(False)} Network error contacting Google Vision API: {e}")
             return False
-            
+
+    if creds_path:
+        print(f"  [*] Testing Google Service Account JSON: {creds_path}")
+        if not os.path.exists(creds_path):
+            print(f"  {check_mark(False)} Service Account file not found at: {creds_path}")
+            return False
+        try:
+            from google.oauth2 import service_account
+            import google.auth.transport.requests
+            creds = service_account.Credentials.from_service_account_file(
+                creds_path,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            req = google.auth.transport.requests.Request()
+            creds.refresh(req)
+            print(f"  {check_mark(True)} Service Account authenticated successfully: {creds.service_account_email}")
+            return True
+        except Exception as e:
+            print(f"  {check_mark(False)} Failed to authenticate with Service Account JSON: {e}")
+            return False
+
     if bing_key:
         print(f"  {check_mark(True)} Bing Visual Search Key configured ({bing_key[:6]}...).")
         return True
