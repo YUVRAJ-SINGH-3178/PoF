@@ -1,0 +1,16 @@
+[
+  {
+    "source_platform": "x.com",
+    "page_url": "https://x.com/tech_leader/status/1788629000",
+    "image_url": "sample_images/matching_candidate.jpg",
+    "page_title": "Keynote Speaker Announcement - Tech Summit 2026",
+    "match_type": "page_match"
+  },
+  {
+    "source_platform": "linkedin.com",
+    "page_url": "https://linkedin.com/in/dr-alden-ross-fellow",
+    "image_url": "sample_images/different_person.jpg",
+    "page_title": "Dr. Alden Ross - Senior AI Researcher Profile",
+    "match_type": "page_match"
+  }
+]
