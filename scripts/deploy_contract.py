@@ -85,16 +85,20 @@ def deploy(network: str = "amoy", private_key: str = None, rpc_url: str = None) 
     }
 
     try:
-        # Check gas price / EIP-1559 fees
-        base_fee = w3.eth.get_block("latest").get("baseFeePerGas")
+        latest_block = w3.eth.get_block("latest")
+        base_fee = latest_block.get("baseFeePerGas")
         if base_fee:
-            priority_fee = w3.eth.max_priority_fee or w3.to_wei(25, "gwei")
+            try:
+                suggested_prio = w3.eth.max_priority_fee
+            except Exception:
+                suggested_prio = w3.to_wei(30, "gwei")
+            priority_fee = max(suggested_prio or w3.to_wei(30, "gwei"), w3.to_wei(30, "gwei"))
             tx_params["maxPriorityFeePerGas"] = priority_fee
-            tx_params["maxFeePerGas"] = base_fee * 2 + priority_fee
+            tx_params["maxFeePerGas"] = int(base_fee * 2 + priority_fee)
         else:
-            tx_params["gasPrice"] = w3.eth.gas_price
+            tx_params["gasPrice"] = max(w3.eth.gas_price, w3.to_wei(30, "gwei"))
     except Exception:
-        tx_params["gasPrice"] = w3.eth.gas_price
+        tx_params["gasPrice"] = w3.to_wei(35, "gwei")
 
     construct_tx = Contract.constructor().build_transaction(tx_params)
     gas_estimate = w3.eth.estimate_gas(construct_tx)

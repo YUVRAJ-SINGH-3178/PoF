@@ -14,14 +14,20 @@ from typing import List, Optional, Dict, Any, Tuple, Union
 from urllib.parse import urlparse
 import requests
 
-# Social platforms domain whitelist
-SOCIAL_DOMAINS = [
-    "x.com",
-    "twitter.com",
-    "instagram.com",
-    "linkedin.com",
-    "facebook.com"
-]
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+# Social platforms domain whitelist and CDN mapping
+SOCIAL_DOMAIN_MAP = {
+    "x.com": "x.com",
+    "twitter.com": "x.com",
+    "twimg.com": "x.com",
+    "instagram.com": "instagram.com",
+    "cdninstagram.com": "instagram.com",
+    "linkedin.com": "linkedin.com",
+    "licdn.com": "linkedin.com",
+    "facebook.com": "facebook.com",
+    "fbcdn.net": "facebook.com"
+}
 
 
 @dataclass
@@ -44,23 +50,33 @@ class ReverseImageSearch:
         google_api_key: Optional[str] = None,
         google_creds_path: Optional[str] = None,
         bing_api_key: Optional[str] = None,
-        allowed_domains: Optional[List[str]] = None
+        allowed_domains: Optional[Dict[str, str]] = None
     ):
         self.google_api_key = google_api_key or os.getenv("GOOGLE_VISION_API_KEY")
         self.google_creds_path = google_creds_path or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         self.bing_api_key = bing_api_key or os.getenv("BING_VISUAL_SEARCH_API_KEY")
-        self.allowed_domains = allowed_domains or SOCIAL_DOMAINS
+        self.domain_map = allowed_domains or SOCIAL_DOMAIN_MAP
+
+    def _resolve_creds_file(self) -> Optional[str]:
+        if not self.google_creds_path:
+            return None
+        clean_path = self.google_creds_path.strip('"\'')
+        p = Path(clean_path)
+        if p.exists():
+            return str(p.resolve())
+        if (ROOT_DIR / clean_path).exists():
+            return str((ROOT_DIR / clean_path).resolve())
+        return None
 
     def has_credentials(self) -> bool:
         """Check if any valid search API credentials are present."""
-        return bool(self.google_api_key or self.google_creds_path or self.bing_api_key)
+        return bool(self.google_api_key or self._resolve_creds_file() or self.bing_api_key)
 
     def _get_domain(self, url: str) -> str:
         """Extract root domain from URL (e.g., 'twitter.com', 'x.com')."""
         try:
             parsed = urlparse(url)
             netloc = parsed.netloc.lower()
-            # Strip 'www.' if present
             if netloc.startswith("www."):
                 netloc = netloc[4:]
             return netloc
@@ -68,11 +84,11 @@ class ReverseImageSearch:
             return ""
 
     def _is_social_domain(self, url: str) -> Tuple[bool, str]:
-        """Check if domain is in social whitelist."""
+        """Check if domain or CDN matches social platforms whitelist."""
         domain = self._get_domain(url)
-        for allowed in self.allowed_domains:
-            if domain == allowed or domain.endswith("." + allowed):
-                return True, allowed
+        for key, platform in self.domain_map.items():
+            if domain == key or domain.endswith("." + key):
+                return True, platform
         return False, domain
 
     def search_google_vision(self, image_path: Union[str, Path]) -> List[SearchCandidate]:
@@ -90,15 +106,15 @@ class ReverseImageSearch:
         params = {}
         headers = {"Content-Type": "application/json"}
 
+        creds_file = self._resolve_creds_file()
         if self.google_api_key:
             params["key"] = self.google_api_key
-        elif self.google_creds_path and os.path.exists(self.google_creds_path):
-            # Attempt to use service account token via google-auth if available
+        elif creds_file:
             try:
                 from google.oauth2 import service_account
                 import google.auth.transport.requests
                 creds = service_account.Credentials.from_service_account_file(
-                    self.google_creds_path,
+                    creds_file,
                     scopes=["https://www.googleapis.com/auth/cloud-platform"]
                 )
                 auth_req = google.auth.transport.requests.Request()
