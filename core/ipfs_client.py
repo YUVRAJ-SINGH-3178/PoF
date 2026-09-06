@@ -42,7 +42,14 @@ class IPFSClient:
 
     def has_credentials(self) -> bool:
         """Check whether live Pinata credentials are configured."""
-        return bool(self.pinata_jwt or (self.pinata_api_key and self.pinata_api_secret))
+        jwt = (self.pinata_jwt or "").strip()
+        if jwt and not jwt.startswith("your_") and not jwt.startswith("<") and len(jwt) > 20:
+            return True
+        key = (self.pinata_api_key or "").strip()
+        secret = (self.pinata_api_secret or "").strip()
+        if key and secret and not key.startswith("your_") and len(key) > 10:
+            return True
+        return False
 
     def _get_headers(self) -> Dict[str, str]:
         if self.pinata_jwt:
@@ -80,7 +87,7 @@ class IPFSClient:
                 break
         return encoded
 
-    def pin_file(self, file_path: Union[str, Path]) -> IPFSReceipt:
+    def pin_file(self, file_path: Union[str, Path], demo_mode: bool = False) -> IPFSReceipt:
         """
         Upload image file to IPFS via Pinata.
         """
@@ -91,7 +98,7 @@ class IPFSClient:
         with open(path, "rb") as f:
             file_bytes = f.read()
 
-        if self.has_credentials():
+        if not demo_mode and self.has_credentials():
             headers = self._get_headers()
             files = {
                 "file": (path.name, file_bytes)
@@ -119,23 +126,23 @@ class IPFSClient:
             except Exception as e:
                 print(f"[IPFS Warning] Live Pinata upload error: {e}")
 
-        # Fallback to deterministic cryptographic CID
+        # Fallback to deterministic cryptographic CID for offline demo mode
         cid = self.compute_deterministic_cid(file_bytes)
         return IPFSReceipt(
             cid=cid,
-            ipfs_uri=f"ipfs://{cid}",
-            gateway_url=f"https://ipfs.io/ipfs/{cid}",
+            ipfs_uri=f"[DEMO MOCK CID - NOT PINNED: ipfs://{cid}]",
+            gateway_url="[DEMO - NO LIVE GATEWAY]",
             pin_size=len(file_bytes),
             is_real_pin=False
         )
 
-    def pin_json(self, data_dict: Dict[str, Any], name: str = "verification-metadata") -> IPFSReceipt:
+    def pin_json(self, data_dict: Dict[str, Any], name: str = "verification-metadata", demo_mode: bool = False) -> IPFSReceipt:
         """
         Pin JSON metadata manifest to IPFS.
         """
         json_bytes = json.dumps(data_dict, indent=2).encode("utf-8")
 
-        if self.has_credentials():
+        if not demo_mode and self.has_credentials():
             headers = self._get_headers()
             headers["Content-Type"] = "application/json"
             payload = {
@@ -154,14 +161,16 @@ class IPFSClient:
                         pin_size=res_json.get("PinSize", len(json_bytes)),
                         is_real_pin=True
                     )
+                else:
+                    print(f"[IPFS Warning] Pinata API returned {resp.status_code}: {resp.text}")
             except Exception as e:
                 print(f"[IPFS Warning] Live Pinata JSON upload error: {e}")
 
         cid = self.compute_deterministic_cid(json_bytes)
         return IPFSReceipt(
             cid=cid,
-            ipfs_uri=f"ipfs://{cid}",
-            gateway_url=f"https://ipfs.io/ipfs/{cid}",
+            ipfs_uri=f"[DEMO MOCK CID - NOT PINNED: ipfs://{cid}]",
+            gateway_url="[DEMO - NO LIVE GATEWAY]",
             pin_size=len(json_bytes),
             is_real_pin=False
         )

@@ -124,9 +124,49 @@ class BlockchainWriter:
         except Exception:
             return 0.0
 
+    def sign_report_attestation(
+        self,
+        report_data: Dict[str, Any],
+        private_key: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Cryptographically bind report data to wallet private key via EIP-191 personal_sign.
+        Returns dictionary with signature, signer address, message hash, and verification status.
+        """
+        pk = private_key or self.private_key
+        is_demo_signer = False
+
+        if not pk or len(pk) < 64:
+            # Generate deterministic demo key for demo-mode runs
+            demo_acc = Account.from_key("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+            pk = demo_acc.key.hex()
+            is_demo_signer = True
+
+        from eth_account.messages import encode_defunct
+        canonical_str = json.dumps(report_data, sort_keys=True, separators=(',', ':'))
+        signable_msg = encode_defunct(text=canonical_str)
+        signed = Account.sign_message(signable_msg, private_key=pk)
+        recovered_addr = Account.recover_message(signable_msg, signature=signed.signature)
+
+        msg_hash = getattr(signed, "message_hash", getattr(signed, "messageHash", None))
+        msg_hash_hex = msg_hash.hex() if hasattr(msg_hash, "hex") else str(msg_hash)
+        sig_bytes = getattr(signed, "signature")
+        sig_hex = sig_bytes.hex() if hasattr(sig_bytes, "hex") else str(sig_bytes)
+
+        signer_account = Account.from_key(pk)
+        return {
+            "signer_address": recovered_addr,
+            "signature": sig_hex,
+            "message_hash": msg_hash_hex,
+            "canonical_payload_sha256": Web3.keccak(text=canonical_str).hex(),
+            "verified_signer": recovered_addr.lower() == signer_account.address.lower(),
+            "is_demo_signature": is_demo_signer
+        }
+
     def write_verification(
         self,
         face_hash: str,
+        candidate_face_hash: str,
         ipfs_cid: str,
         matched_url: str,
         match_confidence_bp: int,
@@ -135,17 +175,19 @@ class BlockchainWriter:
     ) -> BlockchainReceipt:
         """
         Write a verified face match record to the public blockchain testnet.
+        Records both query faceHash and candidateFaceHash for independent third-party re-derivability.
         """
-        # Ensure face_hash is 32-byte hex (bytes32 in Solidity)
-        if face_hash.startswith("0x"):
-            raw_hash = face_hash[2:]
-        else:
-            raw_hash = face_hash
+        # Ensure face_hash and candidate_face_hash are 32-byte hex (bytes32 in Solidity)
+        raw_q_hash = face_hash[2:] if face_hash.startswith("0x") else face_hash
+        raw_c_hash = candidate_face_hash[2:] if candidate_face_hash.startswith("0x") else candidate_face_hash
 
-        if len(raw_hash) != 64:
-            raise ValueError(f"face_hash must be a 32-byte hex string (got length {len(raw_hash)})")
+        if len(raw_q_hash) != 64:
+            raise ValueError(f"face_hash must be a 32-byte hex string (got length {len(raw_q_hash)})")
+        if len(raw_c_hash) != 64:
+            raise ValueError(f"candidate_face_hash must be a 32-byte hex string (got length {len(raw_c_hash)})")
 
-        bytes32_face_hash = bytes.fromhex(raw_hash)
+        bytes32_face_hash = bytes.fromhex(raw_q_hash)
+        bytes32_candidate_face_hash = bytes.fromhex(raw_c_hash)
 
         # Ensure valid basis points
         confidence_bp = max(1, min(10000, int(match_confidence_bp)))
@@ -182,6 +224,7 @@ class BlockchainWriter:
 
                     func = self.contract.functions.recordVerification(
                         bytes32_face_hash,
+                        bytes32_candidate_face_hash,
                         ipfs_cid,
                         matched_url,
                         confidence_bp,
@@ -226,8 +269,7 @@ class BlockchainWriter:
                 except Exception as e:
                     print(f"[Blockchain Error] Live transaction broadcast error: {e}")
 
-        # If live transaction could not be executed (e.g. keys not set yet in .env)
-        # Compute exact deterministic transaction calldata and simulated receipt
+        # In demo / offline mode: compute exact deterministic calldata for offline proof
         encoded_data = ""
         dummy_contract = "0x" + "0" * 40
         if self.abi:
@@ -235,6 +277,7 @@ class BlockchainWriter:
                 c = self.w3.eth.contract(address=dummy_contract, abi=self.abi)
                 func = c.functions.recordVerification(
                     bytes32_face_hash,
+                    bytes32_candidate_face_hash,
                     ipfs_cid,
                     matched_url,
                     confidence_bp,
@@ -245,19 +288,18 @@ class BlockchainWriter:
             except Exception:
                 pass
 
-        # Formulate informative status
-        msg = "PENDING_WALLET_SETUP: Contract ABI encoded successfully. Set WEB3_PRIVATE_KEY and CONTRACT_ADDRESS in .env to broadcast."
-        fake_hash = "0x" + Web3.keccak(text=face_hash + ipfs_cid + matched_url).hex()
+        fake_hash = "0x" + Web3.keccak(text=face_hash + candidate_face_hash + ipfs_cid + matched_url).hex()
 
+        # Enforce Requirement 1: NEVER format like a real block explorer URL in demo mode
         return BlockchainReceipt(
-            tx_hash=fake_hash,
-            explorer_url=f"{self.net_cfg['explorer_base']}/tx/{fake_hash}",
-            contract_address=self.contract_address or "Not Configured in .env",
-            network_name=self.net_cfg["name"],
+            tx_hash=f"[DEMO MOCK TX - NOT ON-CHAIN: {fake_hash}]",
+            explorer_url="[DEMO - NO EXPLORER LINK]",
+            contract_address=self.contract_address or "[DEMO - NO CONTRACT DEPLOYED]",
+            network_name=f"[DEMO SIMULATION] {self.net_cfg['name']}",
             chain_id=self.net_cfg["chain_id"],
             block_number=None,
             gas_used=None,
             record_id=None,
             is_live_tx=False,
-            status_message=msg
+            status_message="[DEMO — NOT VERIFIABLE — NO LIVE API CALL MADE] Simulation mode. No on-chain transaction broadcast."
         )
