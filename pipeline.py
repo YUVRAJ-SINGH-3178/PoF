@@ -61,7 +61,7 @@ def check_live_credentials() -> List[str]:
     # 1. Search credentials
     searcher = ReverseImageSearch()
     if not searcher.has_credentials():
-        missing.append("Search API: GOOGLE_VISION_API_KEY or GOOGLE_APPLICATION_CREDENTIALS or BING_VISUAL_SEARCH_API_KEY")
+        missing.append("Search API: GOOGLE_VISION_API_KEY or GOOGLE_APPLICATION_CREDENTIALS or BING_VISUAL_SEARCH_API_KEY or APIFY_API_KEY")
         
     # 2. IPFS credentials
     ipfs_client = IPFSClient()

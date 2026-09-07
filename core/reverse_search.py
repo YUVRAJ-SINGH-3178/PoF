@@ -50,11 +50,13 @@ class ReverseImageSearch:
         google_api_key: Optional[str] = None,
         google_creds_path: Optional[str] = None,
         bing_api_key: Optional[str] = None,
+        apify_api_key: Optional[str] = None,
         allowed_domains: Optional[Dict[str, str]] = None
     ):
         self.google_api_key = google_api_key or os.getenv("GOOGLE_VISION_API_KEY")
         self.google_creds_path = google_creds_path or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         self.bing_api_key = bing_api_key or os.getenv("BING_VISUAL_SEARCH_API_KEY")
+        self.apify_api_key = apify_api_key or os.getenv("APIFY_API_KEY")
         self.domain_map = allowed_domains or SOCIAL_DOMAIN_MAP
 
     def _resolve_creds_file(self) -> Optional[str]:
@@ -70,7 +72,7 @@ class ReverseImageSearch:
 
     def has_credentials(self) -> bool:
         """Check if any valid search API credentials are present."""
-        return bool(self.google_api_key or self._resolve_creds_file() or self.bing_api_key)
+        return bool(self.google_api_key or self._resolve_creds_file() or self.bing_api_key or self.apify_api_key)
 
     def _get_domain(self, url: str) -> str:
         """Extract root domain from URL (e.g., 'twitter.com', 'x.com')."""
