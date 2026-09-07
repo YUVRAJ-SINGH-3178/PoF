@@ -16,8 +16,16 @@ SAMPLE_DIR = ROOT_DIR / "sample_images"
 QUERY_IMAGE = SAMPLE_DIR / "query_face.jpg"
 
 
-def test_live_mode_credential_validation():
-    # In clean or test environment without live credentials, check_live_credentials identifies missing keys
+def test_live_mode_credential_validation(monkeypatch):
+    # Simulate an unconfigured environment by clearing credentials
+    for var in [
+        "GOOGLE_VISION_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS",
+        "BING_VISUAL_SEARCH_API_KEY", "APIFY_API_KEY",
+        "PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET",
+        "WEB3_PRIVATE_KEY", "CONTRACT_ADDRESS"
+    ]:
+        monkeypatch.delenv(var, raising=False)
+
     missing = check_live_credentials()
     assert len(missing) > 0, "Should detect missing live credentials in unconfigured environment"
 

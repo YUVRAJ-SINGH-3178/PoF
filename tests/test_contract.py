@@ -89,8 +89,9 @@ def test_blockchain_writer_calldata_encoding_and_demo_mode():
     assert "DEMO" in receipt.status_message
 
 
-def test_cryptographic_report_signing():
-    writer = BlockchainWriter(network="amoy")
+def test_cryptographic_report_signing(monkeypatch):
+    monkeypatch.delenv("WEB3_PRIVATE_KEY", raising=False)
+    writer = BlockchainWriter(network="amoy", private_key=None)
     test_report_data = {
         "query_face_hash": "0x" + "aa" * 32,
         "candidate_face_hash": "0x" + "bb" * 32,

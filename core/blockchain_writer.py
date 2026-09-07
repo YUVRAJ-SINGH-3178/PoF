@@ -211,16 +211,17 @@ class BlockchainWriter:
                     # Determine gas fee structure
                     latest_block = self.w3.eth.get_block("latest")
                     base_fee = latest_block.get("baseFeePerGas")
+                    min_prio = self.w3.to_wei(1.5, "gwei") if self.network == "sepolia" else self.w3.to_wei(30, "gwei")
                     if base_fee:
                         try:
                             suggested_prio = self.w3.eth.max_priority_fee
                         except Exception:
-                            suggested_prio = self.w3.to_wei(30, "gwei")
-                        prio_fee = max(suggested_prio or self.w3.to_wei(30, "gwei"), self.w3.to_wei(30, "gwei"))
+                            suggested_prio = min_prio
+                        prio_fee = max(suggested_prio or min_prio, min_prio)
                         tx_params["maxPriorityFeePerGas"] = prio_fee
-                        tx_params["maxFeePerGas"] = int(base_fee * 2 + prio_fee)
+                        tx_params["maxFeePerGas"] = int(base_fee * 1.5 + prio_fee)
                     else:
-                        tx_params["gasPrice"] = max(self.w3.eth.gas_price, self.w3.to_wei(30, "gwei"))
+                        tx_params["gasPrice"] = max(self.w3.eth.gas_price, min_prio)
 
                     func = self.contract.functions.recordVerification(
                         bytes32_face_hash,

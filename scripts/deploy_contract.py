@@ -97,6 +97,7 @@ def deploy(network: str = "amoy", private_key: str = None, rpc_url: str = None) 
         "chainId": cfg["chain_id"]
     }
 
+    min_prio = w3.to_wei(1.5, "gwei") if net_key == "sepolia" else w3.to_wei(30, "gwei")
     try:
         latest_block = w3.eth.get_block("latest")
         base_fee = latest_block.get("baseFeePerGas")
@@ -104,14 +105,14 @@ def deploy(network: str = "amoy", private_key: str = None, rpc_url: str = None) 
             try:
                 suggested_prio = w3.eth.max_priority_fee
             except Exception:
-                suggested_prio = w3.to_wei(30, "gwei")
-            priority_fee = max(suggested_prio or w3.to_wei(30, "gwei"), w3.to_wei(30, "gwei"))
+                suggested_prio = min_prio
+            priority_fee = max(suggested_prio or min_prio, min_prio)
             tx_params["maxPriorityFeePerGas"] = priority_fee
-            tx_params["maxFeePerGas"] = int(base_fee * 2 + priority_fee)
+            tx_params["maxFeePerGas"] = int(base_fee * 1.5 + priority_fee)
         else:
-            tx_params["gasPrice"] = max(w3.eth.gas_price, w3.to_wei(30, "gwei"))
+            tx_params["gasPrice"] = max(w3.eth.gas_price, min_prio)
     except Exception:
-        tx_params["gasPrice"] = w3.to_wei(35, "gwei")
+        tx_params["gasPrice"] = min_prio + w3.to_wei(2, "gwei")
 
     construct_tx = Contract.constructor().build_transaction(tx_params)
     gas_estimate = w3.eth.estimate_gas(construct_tx)
