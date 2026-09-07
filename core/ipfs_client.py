@@ -11,6 +11,9 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, Union, Dict, Any
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 PINATA_PIN_FILE_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS"
 PINATA_PIN_JSON_URL = "https://api.pinata.cloud/pinning/pinJSONToIPFS"
