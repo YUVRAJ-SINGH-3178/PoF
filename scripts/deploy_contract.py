@@ -34,17 +34,31 @@ NETWORK_CONFIGS = {
 }
 
 def deploy(network: str = "amoy", private_key: str = None, rpc_url: str = None) -> str:
-    cfg = NETWORK_CONFIGS.get(network.lower(), NETWORK_CONFIGS["amoy"])
-    target_rpc = rpc_url or os.getenv("WEB3_RPC_URL") or cfg["rpc_url"]
+    net_key = network.lower()
+    cfg = NETWORK_CONFIGS.get(net_key, NETWORK_CONFIGS["amoy"])
+    if net_key == "sepolia":
+        target_rpc = rpc_url or os.getenv("SEPOLIA_RPC_URL") or cfg["rpc_url"]
+    else:
+        target_rpc = rpc_url or os.getenv("AMOY_RPC_URL") or os.getenv("WEB3_RPC_URL") or cfg["rpc_url"]
+
     pk = private_key or os.getenv("WEB3_PRIVATE_KEY")
 
-    if not pk:
-        print("\n[ERROR] No private key provided. Set WEB3_PRIVATE_KEY in your .env file.")
-        print("Example: WEB3_PRIVATE_KEY=0xYourPrivateKeyHere\n")
+    if not pk or "your_faucet" in pk.lower() or pk.strip() in ("", "0x"):
+        print("\n[ERROR] Valid private key required. Set WEB3_PRIVATE_KEY in your .env file.")
+        print("WEB3_PRIVATE_KEY currently contains a placeholder or is missing.")
+        print("In MetaMask: Account Details -> Show Private Key -> copy 64-character hex key.")
+        print("Example: WEB3_PRIVATE_KEY=0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d\n")
         return None
 
     if not pk.startswith("0x"):
         pk = "0x" + pk
+
+    try:
+        account = Account.from_key(pk)
+    except Exception as e:
+        print(f"\n[ERROR] Failed to load private key: {e}")
+        print("Ensure WEB3_PRIVATE_KEY in .env is a valid 64-character hex private key (not your public wallet address).\n")
+        return None
 
     if not COMPILED_CONTRACT_PATH.exists():
         print(f"[ERROR] Compiled contract file not found at {COMPILED_CONTRACT_PATH}")
@@ -62,7 +76,6 @@ def deploy(network: str = "amoy", private_key: str = None, rpc_url: str = None) 
         print(f"[ERROR] Failed to connect to RPC node at {target_rpc}")
         return None
 
-    account = Account.from_key(pk)
     balance_wei = w3.eth.get_balance(account.address)
     balance_eth = w3.from_wei(balance_wei, "ether")
     print(f"Deployer Address: {account.address}")
@@ -137,6 +150,7 @@ def update_env_file(contract_address: str, rpc_url: str):
     env_path = ROOT_DIR / ".env"
     lines = []
     has_contract = False
+    has_rpc = False
     if env_path.exists():
         with open(env_path, "r") as f:
             lines = f.readlines()
@@ -146,15 +160,20 @@ def update_env_file(contract_address: str, rpc_url: str):
         if line.startswith("CONTRACT_ADDRESS="):
             new_lines.append(f"CONTRACT_ADDRESS={contract_address}\n")
             has_contract = True
+        elif line.startswith("WEB3_RPC_URL="):
+            new_lines.append(f"WEB3_RPC_URL={rpc_url}\n")
+            has_rpc = True
         else:
             new_lines.append(line)
 
     if not has_contract:
         new_lines.append(f"CONTRACT_ADDRESS={contract_address}\n")
+    if not has_rpc:
+        new_lines.append(f"WEB3_RPC_URL={rpc_url}\n")
 
     with open(env_path, "w") as f:
         f.writelines(new_lines)
-    print(f"Updated CONTRACT_ADDRESS in {env_path}")
+    print(f"Updated CONTRACT_ADDRESS and WEB3_RPC_URL in {env_path}")
 
 if __name__ == "__main__":
     net = sys.argv[1] if len(sys.argv) > 1 else "amoy"
