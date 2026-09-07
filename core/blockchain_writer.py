@@ -29,7 +29,7 @@ NETWORK_CONFIGS = {
     "sepolia": {
         "name": "Ethereum Sepolia Testnet",
         "chain_id": 11155111,
-        "default_rpc": "https://rpc.sepolia.org",
+        "default_rpc": "https://ethereum-sepolia-rpc.publicnode.com",
         "explorer_base": "https://sepolia.etherscan.io"
     }
 }

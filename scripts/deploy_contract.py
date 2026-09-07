@@ -27,7 +27,7 @@ NETWORK_CONFIGS = {
     },
     "sepolia": {
         "name": "Ethereum Sepolia Testnet",
-        "rpc_url": os.getenv("SEPOLIA_RPC_URL", "https://rpc.sepolia.org"),
+        "rpc_url": os.getenv("SEPOLIA_RPC_URL", "https://ethereum-sepolia-rpc.publicnode.com"),
         "chain_id": 11155111,
         "explorer": "https://sepolia.etherscan.io"
     }
