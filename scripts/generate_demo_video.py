@@ -28,15 +28,20 @@ RED = (248, 113, 113)          # #f87171
 PURPLE = (192, 132, 252)       # #c084fc
 DIM_GRAY = (110, 118, 129)     # #6e7681
 
-# Font
+# Font settings (Slightly reduced font to ensure zero horizontal clipping)
 FONT_PATH = "C:/Windows/Fonts/consola.ttf"
-FONT_SIZE = 17
+FONT_SIZE = 16
 font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
 font_bold = ImageFont.truetype("C:/Windows/Fonts/consolab.ttf", FONT_SIZE)
 
 TERMINAL_EVENTS = [
-    # Command 1: Run Live Pipeline
-    ("type_command", "python pipeline.py --network sepolia --consent-confirmed --image sample_images/query_face.jpg --candidates sample_images/test_candidates.json --save-report report.json"),
+    # Command 1: Run Live Pipeline (Formatted across continuation lines so nothing is cut off)
+    ("type_multiline_command", [
+        ("PS C:\\Users\\satis\\OneDrive\\Desktop\\HHG> ", "python pipeline.py --network sepolia --consent-confirmed `"),
+        (">> ", "  --image sample_images/query_face.jpg `"),
+        (">> ", "  --candidates sample_images/test_candidates.json `"),
+        (">> ", "  --save-report report.json")
+    ]),
     ("output_lines", [
         (DIM_GRAY, "================================================================================"),
         (CYAN,     "     FACE ID + BLOCKCHAIN BIOMETRIC RE-VERIFICATION PIPELINE"),
@@ -106,7 +111,11 @@ TERMINAL_EVENTS = [
     ("pause", 360),  # 12-second pause to voice over the pipeline execution
 
     # Command 2: Independent Third-Party Re-Derivation
-    ("type_command", "python scripts/rederive_verification.py --query-image sample_images/query_face.jpg --candidate-image sample_images/matching_candidate.jpg"),
+    ("type_multiline_command", [
+        ("PS C:\\Users\\satis\\OneDrive\\Desktop\\HHG> ", "python scripts/rederive_verification.py `"),
+        (">> ", "  --query-image sample_images/query_face.jpg `"),
+        (">> ", "  --candidate-image sample_images/matching_candidate.jpg")
+    ]),
     ("output_lines", [
         (DIM_GRAY, "================================================================================"),
         (CYAN,     "      INDEPENDENT BIOMETRIC RE-DERIVATION AUDIT"),
@@ -137,7 +146,9 @@ TERMINAL_EVENTS = [
     ("pause", 300),  # 10-second pause to voice over mathematical audit
 
     # Command 3: Pytest Suite
-    ("type_command", "pytest tests/ -v"),
+    ("type_multiline_command", [
+        ("PS C:\\Users\\satis\\OneDrive\\Desktop\\HHG> ", "pytest tests/ -v")
+    ]),
     ("output_lines", [
         (DIM_GRAY, "============================= test session starts ============================="),
         (TEXT_COLOR, "platform win32 -- Python 3.13.5, pytest-8.4.2, pluggy-1.6.0"),
@@ -159,7 +170,7 @@ TERMINAL_EVENTS = [
         (GREEN, "tests/test_pipeline_modes.py::test_demo_mode_execution_success PASSED    [ 65%]"),
         (GREEN, "tests/test_verifier.py::test_positive_candidate_verification PASSED      [ 70%]"),
         (GREEN, "tests/test_verifier.py::test_negative_candidate_rejection PASSED         [ 75%]"),
-        (GREEN, "tests/test_verifier.py::test_blur_quality_check_rejection PASSED         [ 80%]"),
+        (GREEN, "tests/test_blur_quality_check_rejection PASSED         [ 80%]"),
         (GREEN, "tests/test_verifier.py::test_low_resolution_rejection PASSED             [ 85%]"),
         (GREEN, "tests/test_verifier.py::test_candidate_cap_enforced PASSED               [ 90%]"),
         (GREEN, "tests/test_verifier.py::test_re_verify_all_mixed_candidates PASSED       [ 95%]"),
@@ -176,8 +187,8 @@ def render_terminal_frame(history_lines, current_prompt_line, cursor_visible):
     img = Image.new("RGB", (WIDTH, HEIGHT), (8, 12, 20))
     draw = ImageDraw.Draw(img)
 
-    # Window Container
-    x0, y0, x1, y1 = 40, 40, WIDTH - 40, HEIGHT - 40
+    # Window Container with ample horizontal margins
+    x0, y0, x1, y1 = 50, 40, WIDTH - 50, HEIGHT - 40
     # Outer Glow / Shadow
     draw.rounded_rectangle([x0 - 2, y0 - 2, x1 + 2, y1 + 2], radius=16, outline=(30, 41, 59), width=2)
     # Background
@@ -199,9 +210,9 @@ def render_terminal_frame(history_lines, current_prompt_line, cursor_visible):
     draw.text((x0 + 95, y0 + 13), title, fill=(148, 163, 184), font=font)
 
     # Terminal Content Area
-    content_y0 = y0 + 60
-    max_visible_lines = 40
-    line_height = 22
+    content_y0 = y0 + 58
+    max_visible_lines = 41
+    line_height = 23
 
     all_lines = history_lines.copy()
     if current_prompt_line is not None:
@@ -232,37 +243,35 @@ def generate_video():
     out = cv2.VideoWriter(OUTPUT_FILE, fourcc, FPS, (WIDTH, HEIGHT))
 
     history = []
-    PROMPT_PREFIX = "PS C:\\Users\\satis\\OneDrive\\Desktop\\HHG> "
-
     frame_count = 0
 
     for event in TERMINAL_EVENTS:
         ev_type = event[0]
 
-        if ev_type == "type_command":
-            cmd = event[1]
-            # Type command character by character
-            for i in range(len(cmd) + 1):
-                typed = cmd[:i]
-                line = (CYAN, PROMPT_PREFIX + typed)
-                frame = render_terminal_frame(history, line, cursor_visible=(i % 4 < 2))
-                out.write(frame)
-                frame_count += 1
+        if ev_type == "type_multiline_command":
+            cmd_lines = event[1]
+            for prompt_str, cmd_str in cmd_lines:
+                # Type line character by character
+                for i in range(len(cmd_str) + 1):
+                    typed = cmd_str[:i]
+                    line = (CYAN, prompt_str + typed)
+                    frame = render_terminal_frame(history, line, cursor_visible=(i % 4 < 2))
+                    out.write(frame)
+                    frame_count += 1
 
-            # Pause 10 frames before enter
-            for _ in range(10):
-                line = (CYAN, PROMPT_PREFIX + cmd)
-                frame = render_terminal_frame(history, line, cursor_visible=True)
-                out.write(frame)
-                frame_count += 1
+                # Small pause after line
+                for _ in range(6):
+                    line = (CYAN, prompt_str + cmd_str)
+                    frame = render_terminal_frame(history, line, cursor_visible=True)
+                    out.write(frame)
+                    frame_count += 1
 
-            history.append((CYAN, PROMPT_PREFIX + cmd))
+                history.append((CYAN, prompt_str + cmd_str))
 
         elif ev_type == "output_lines":
             lines = event[1]
             for color, text in lines:
                 history.append((color, text))
-                # Write 2-3 frames per line so text streams naturally
                 for _ in range(2):
                     frame = render_terminal_frame(history, None, cursor_visible=False)
                     out.write(frame)
