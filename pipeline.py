@@ -153,7 +153,13 @@ def run_pipeline(
     searcher = ReverseImageSearch()
     candidates: List[SearchCandidate] = []
 
-    if not demo_mode and searcher.has_credentials():
+    if candidates_file and Path(candidates_file).exists():
+        cand_path = Path(candidates_file)
+        print(f"  [+] Loading candidates from specified lead file: {cand_path}")
+        with open(cand_path, "r") as f:
+            raw_cands = json.load(f)
+            candidates = [SearchCandidate(**c) for c in raw_cands]
+    elif not demo_mode and searcher.has_credentials():
         print("  [*] Querying Reverse Image Search API (Google Vision / Bing)...")
         try:
             candidates = searcher.search(input_img)
@@ -164,12 +170,7 @@ def run_pipeline(
     else:
         # In demo mode, load benchmark test leads
         print(f"  {DEMO_PREFIX} Using canned benchmark candidate leads.")
-        cand_path = None
-        if candidates_file and Path(candidates_file).exists():
-            cand_path = Path(candidates_file)
-        elif (Path("sample_images") / "test_candidates.json").exists():
-            cand_path = Path("sample_images") / "test_candidates.json"
-
+        cand_path = (Path("sample_images") / "test_candidates.json") if (Path("sample_images") / "test_candidates.json").exists() else None
         if cand_path:
             print(f"  {DEMO_PREFIX} Loaded candidates from: {cand_path}")
             with open(cand_path, "r") as f:

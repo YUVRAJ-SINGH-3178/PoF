@@ -63,6 +63,7 @@ class BlockchainWriter:
         contract_address: Optional[str] = None
     ):
         self.network_key = network.lower()
+        self.network = self.network_key
         self.net_cfg = NETWORK_CONFIGS.get(self.network_key, NETWORK_CONFIGS["amoy"])
         self.rpc_url = rpc_url or os.getenv("WEB3_RPC_URL") or self.net_cfg["default_rpc"]
         self.private_key = private_key or os.getenv("WEB3_PRIVATE_KEY")
